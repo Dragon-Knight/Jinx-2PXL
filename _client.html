@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>UDP Pixel Viewer</title>
+  <style>
+    canvas {
+      border: 1px solid black;
+    }
+  </style>
+</head>
+<body>
+	<label>Scale: <input type="number" id="scale" value="5" min="1" max="10" /></label> | 
+	<label>Width: <input type="number" id="width" value="0" min="1" max="256" disabled /></label>  | 
+	<label>Height: <input type="number" id="height" value="0" min="1" max="128" disabled /></label> 
+	<br><br>
+	<canvas id="canvas" width="300" height="300"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const scaleInput = document.getElementById('scale');
+	const widthOutput = document.getElementById('width');
+	const heightOutput = document.getElementById('height');
+	
+	let width = 16;
+	let height = 16;
+
+    const socket = new WebSocket('ws://localhost:8080');
+
+    socket.binaryType = 'arraybuffer';
+
+	socket.onmessage = (event) => 
+	{
+		const scale = parseInt(scaleInput.value) || 1;
+		
+		const data = new Uint8Array(event.data);
+		if(data.length === 2)
+		{
+			width = data[0];
+			height = data[1];
+			
+			widthOutput.value = width;
+			heightOutput.value = height;
+		}
+		else
+		{
+			const pixelCount = Math.floor(data.length / 3);
+			//const width = parseInt(widthInput.value) || 1;
+			//const height = parseInt(heightInput.value) || 1;
+			
+			if(width * height * 3 != data.length)
+				console.log("Не верный размер данных!");
+
+			canvas.width = width * scale;
+			canvas.height = height * scale;
+
+			for (let i = 0; i < pixelCount; i++)
+			{
+				const r = data[i * 3 + 0];
+				const g = data[i * 3 + 1];
+				const b = data[i * 3 + 2];
+
+				const x = (i % width) * scale;
+				const y = Math.floor(i / width) * scale;
+
+				ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+				ctx.fillRect(x, y, scale, scale);
+			}
+		}
+    };
+  </script>
+</body>
+</html>
