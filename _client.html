@@ -51,7 +51,7 @@
 				</tr>
 				<tr>
 					<td colspan="3">
-						<canvas id="currentGraph" width="300" height="200" data-min="0" data-max="100000"></canvas>
+						<canvas id="currentGraph" width="300" height="200" data-min="0" data-max="100000" data-grid="10000"></canvas>
 					</td>
 				</tr>
 			</table>
@@ -144,16 +144,30 @@ function createGraph(canvasId)
 
   const minVal = parseFloat(canvas.dataset.min);
   const maxVal = parseFloat(canvas.dataset.max);
+  const gridStep = parseFloat(canvas.dataset.grid) || 0;
 
   const maxPoints = width;
   const values = new Float32Array(maxPoints);
   let head = 0;
   let count = 0;
 
-  function draw() {
-    ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, width, height);
+  function drawGrid() {
+    if (!gridStep || gridStep <= 0) return;
 
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+
+    for (let val = minVal + gridStep; val < maxVal; val += gridStep) {
+      const y = height - ((val - minVal) / (maxVal - minVal)) * height;
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+    }
+
+    ctx.stroke();
+  }
+
+  function drawGraph() {
     ctx.beginPath();
     ctx.strokeStyle = '#0f0';
     ctx.lineWidth = 1;
@@ -172,6 +186,13 @@ function createGraph(canvasId)
     }
 
     ctx.stroke();
+  }
+
+  function draw() {
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, width, height);
+    drawGrid();
+    drawGraph();
   }
 
   function set(value) {
