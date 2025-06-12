@@ -4,36 +4,87 @@
   <meta charset="UTF-8" />
   <title>UDP Pixel Viewer</title>
   <style>
-    canvas {
-      border: 1px solid black;
-    }
+	canvas {
+		border: 1px solid black;
+	}
+	
+	.params {
+		display: grid;
+		width: 308px;
+	}
+	
+	.params input {
+		width: 64px;
+	}
   </style>
 </head>
 <body>
-	<label>Scale: <input type="number" id="scale" value="5" min="1" max="10" /></label> | 
-	<label>Width: <input type="number" id="width" value="0" min="1" max="256" disabled /></label>  | 
-	<label>Height: <input type="number" id="height" value="0" min="1" max="128" disabled /></label> 
-	<br><br>
-	<canvas id="canvas" width="300" height="300"></canvas>
 
-  <script>
+<table border="1" cellspacing="0" cellpadding="10">
+	<tr>
+		<td class="params">
+			<table>
+				<tr>
+					<td>Scale</td>
+					<td><input type="number" id="scale" value="5" min="1" max="10" /></td>
+					<td></td>
+				</tr>
+				<tr>
+					<td>Width</td>
+					<td><input type="text" id="width" value="0" disabled /></td>
+					<td>px</td>
+				</tr>
+				<tr>
+					<td>Height</td>
+					<td><input type="text" id="height" value="0" disabled /></td>
+					<td>px</td>
+				</tr>
+				<tr>
+					<td>Current</td>
+					<td><input type="text" id="current" value="0" disabled /></td>
+					<td>mA</td>
+				</tr>
+				<tr>
+					<td>Power</td>
+					<td><input type="text" id="power" value="0" disabled /></td>
+					<td>Wt</td>
+				</tr>
+				<tr>
+					<td colspan="3">
+						<canvas id="currentGraph" width="300" height="200" data-min="0" data-max="100000"></canvas>
+					</td>
+				</tr>
+			</table>
+		</td>
+		<td>
+			<canvas id="canvas" width="300" height="300"></canvas>
+		</td>
+	</tr>
+</table>
+
+<script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const scaleInput = document.getElementById('scale');
 	const widthOutput = document.getElementById('width');
 	const heightOutput = document.getElementById('height');
+	const currentOutput = document.getElementById('current');
+	const powerOutput = document.getElementById('power');
+	const currentGraph = createGraph('currentGraph');
+	
+	// Предрасчёт таблицы токов для одного канала
+	const channelCurrentTable = new Float32Array(256);
+	for(let i = 0; i < 256; i++)
+		channelCurrentTable[i] = i * (12 / 255);
 	
 	let width = 16;
 	let height = 16;
+	let current = 0;
 
-    const socket = new WebSocket('ws://localhost:8080');
-
+	const socket = new WebSocket('ws://localhost:8080');
     socket.binaryType = 'arraybuffer';
-
 	socket.onmessage = (event) => 
 	{
-		const scale = parseInt(scaleInput.value) || 1;
-		
 		const data = new Uint8Array(event.data);
 		if(data.length === 2)
 		{
@@ -45,30 +96,95 @@
 		}
 		else
 		{
+			// Ток полностью выключенной панели
+			current = 1450;
+			
+			const scale = parseInt(scaleInput.value) || 1;
 			const pixelCount = Math.floor(data.length / 3);
-			//const width = parseInt(widthInput.value) || 1;
-			//const height = parseInt(heightInput.value) || 1;
 			
 			if(width * height * 3 != data.length)
 				console.log("Не верный размер данных!");
-
+			
 			canvas.width = width * scale;
 			canvas.height = height * scale;
-
-			for (let i = 0; i < pixelCount; i++)
+			
+			let r, g, b, x, y;
+			for(let i = 0; i < pixelCount; i++)
 			{
-				const r = data[i * 3 + 0];
-				const g = data[i * 3 + 1];
-				const b = data[i * 3 + 2];
-
-				const x = (i % width) * scale;
-				const y = Math.floor(i / width) * scale;
-
+				r = data[i * 3 + 0];
+				g = data[i * 3 + 1];
+				b = data[i * 3 + 2];
+				
+				x = (i % width) * scale;
+				y = Math.floor(i / width) * scale;
+				
 				ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 				ctx.fillRect(x, y, scale, scale);
+				
+				current += (channelCurrentTable[r] + channelCurrentTable[g] + channelCurrentTable[b]);
 			}
+			
+			let current_round = Math.round(current);
+			
+			currentOutput.value = current_round;
+			powerOutput.value = Math.round( ((current * 5.0) / 1000) );
+			currentGraph.set(current_round);
 		}
-    };
-  </script>
+	};
+	
+	
+function createGraph(canvasId)
+{
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) throw new Error(`Canvas with id "${canvasId}" not found`);
+  const ctx = canvas.getContext('2d');
+
+  const width = canvas.width;
+  const height = canvas.height;
+
+  const minVal = parseFloat(canvas.dataset.min);
+  const maxVal = parseFloat(canvas.dataset.max);
+
+  const maxPoints = width;
+  const values = new Float32Array(maxPoints);
+  let head = 0;
+  let count = 0;
+
+  function draw() {
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#0f0';
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i < count; i++) {
+      const bufferIndex = count === maxPoints
+        ? (head + i) % maxPoints
+        : i;
+
+      const x = (i / (maxPoints - 1)) * width;
+      const val = values[bufferIndex];
+      const y = height - ((val - minVal) / (maxVal - minVal)) * height;
+
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+
+    ctx.stroke();
+  }
+
+  function set(value) {
+    values[head] = value;
+    head = (head + 1) % maxPoints;
+    count = Math.min(count + 1, maxPoints);
+    draw();
+  }
+
+  return { set };
+}
+
+</script>
+
 </body>
 </html>
