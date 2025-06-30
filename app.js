@@ -11,7 +11,7 @@ const { PXLStream } = require('./PXLStream');
 const cfg_serial = { path: 'COM10', baudRate: 1500000/*, highWaterMark: 150000*/};
 const cfg_socket = { type: 'udp4', address: '127.0.0.1', port: 65506 };
 const cfg_wss = { port: 8080 }
-const cfg_pxl = { width: 128, height: 16 };
+const cfg_pxl = { width: 64, height: 48 };
 
 
 const obj_serial = new SerialPort(cfg_serial);

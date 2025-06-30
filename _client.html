@@ -40,6 +40,11 @@
 					<td>px</td>
 				</tr>
 				<tr>
+					<td>Brightness</td>
+					<td><input type="number" id="brightness" value="127" min="0" max="255" /></td>
+					<td>val</td>
+				</tr>				
+				<tr>
 					<td>Current</td>
 					<td><input type="text" id="current" value="0" disabled /></td>
 					<td>mA</td>
@@ -57,7 +62,7 @@
 			</table>
 		</td>
 		<td>
-			<canvas id="canvas" width="300" height="300"></canvas>
+			<canvas id="canvas" width="320" height="240"></canvas>
 		</td>
 	</tr>
 </table>
@@ -68,6 +73,7 @@
     const scaleInput = document.getElementById('scale');
 	const widthOutput = document.getElementById('width');
 	const heightOutput = document.getElementById('height');
+	const brightnessInput = document.getElementById('brightness');
 	const currentOutput = document.getElementById('current');
 	const powerOutput = document.getElementById('power');
 	const currentGraph = createGraph('currentGraph');
@@ -97,9 +103,10 @@
 		else
 		{
 			// Ток полностью выключенной панели
-			current = 1450;
+			current = 1670;
 			
-			const scale = parseInt(scaleInput.value) || 1;
+			const scale = parseInt(scaleInput.value);
+			const brightness = parseInt(brightnessInput.value);
 			const pixelCount = Math.floor(data.length / 3);
 			
 			if(width * height * 3 != data.length)
@@ -109,6 +116,7 @@
 			canvas.height = height * scale;
 			
 			let r, g, b, x, y;
+			let r2, g2, b2;
 			for(let i = 0; i < pixelCount; i++)
 			{
 				r = data[i * 3 + 0];
@@ -121,7 +129,10 @@
 				ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 				ctx.fillRect(x, y, scale, scale);
 				
-				current += (channelCurrentTable[r] + channelCurrentTable[g] + channelCurrentTable[b]);
+				r2 = parseInt((r * brightness) / 255);
+				g2 = parseInt((g * brightness) / 255);
+				b2 = parseInt((b * brightness) / 255);
+				current += (channelCurrentTable[r2] + channelCurrentTable[g2] + channelCurrentTable[b2]);
 			}
 			
 			let current_round = Math.round(current);
